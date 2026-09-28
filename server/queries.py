@@ -15,13 +15,8 @@ from database.models import issue_timeline_events, issues
 
 async def get_issue_activity(conn: AsyncConnection, owner: str, repo: str, start, end):
     """
-    Return the repo's issues that had at least one timeline event between
-    `start` and `end` (both inclusive), each with its total event count in
-    that window, ordered by event count descending.
-
-    Issues with no events in the timeframe are omitted: the inner join below
-    only matches issues that have at least one qualifying event row, so
-    nothing further (e.g. a HAVING clause) is needed to exclude them.
+    Return the repo's issues that were created between `start` and `end` (both inclusive), 
+    ordered by event count descending.
     """
     i, t = issues, issue_timeline_events
     stmt = (
@@ -59,8 +54,8 @@ async def get_issue_activity_detail(conn: AsyncConnection, owner: str, repo: str
     """
     Like get_issue_activity, but each issue also carries a breakdown of event
     counts by event_type (e.g. how many were comments vs. commits vs. closes)
-    and a count of distinct actors who triggered an event. Same ordering and
-    same no-events exclusion, meant for feeding a richer summary to an LLM.
+    and a count of distinct actors who triggered an event. Same ordering, 
+    meant for feeding a richer summary to an LLM.
 
     Returns a list of dicts, each with: issue_number, status, created_at,
     closed_at, event_count, distinct_actors, last_event_at (the most recent

@@ -144,9 +144,8 @@ async def get_issues_by_activity(
     conn: AsyncConnection = Depends(get_conn),
 ):
     """
-    Return the repo's issues that had at least one timeline event between
-    `start` and `end` (both inclusive), ordered by event count, descending.
-    Issues with zero events in the timeframe are omitted entirely.
+    Return the repo's issues created between `start` and `end` (both inclusive), 
+    ordered by event count, descending.
     """
     if start > end:
         logger.warning("Rejected request: start (%s) is after end (%s)", start, end)
