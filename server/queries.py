@@ -45,8 +45,8 @@ async def get_issue_activity(conn: AsyncConnection, owner: str, repo: str, start
         .where(
             i.c.owner == owner,
             i.c.repo == repo,
-            t.c.created_at >= start,
-            t.c.created_at <= end,
+            i.c.created_at >= start,
+            i.c.created_at <= end,
         )
         .group_by(i.c.issue_number, i.c.status, i.c.created_at, i.c.closed_at)
         .order_by(func.count(t.c.id).desc())
@@ -76,8 +76,8 @@ async def get_issue_activity_detail(conn: AsyncConnection, owner: str, repo: str
     where_cond = (
         i.c.owner == owner,
         i.c.repo == repo,
-        t.c.created_at >= start,
-        t.c.created_at <= end,
+        i.c.created_at >= start,
+        i.c.created_at <= end,
     )
 
     totals_stmt = (
