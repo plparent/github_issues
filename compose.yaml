@@ -1,0 +1,113 @@
+services:
+  ollama:
+    image: ollama/ollama:0.34.4
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10 
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  db:
+    image: postgres:18.6
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    ports:
+      - "5432:${POSTGRES_PORT}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s 
+
+  db_migration:
+    build:
+      context: .
+      dockerfile: ./database/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:${POSTGRES_PORT}/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  sync:
+    build:
+      context: .
+      dockerfile: ./sync/Dockerfile
+    environment:
+      REPO_OWNER: ${REPO_OWNER}
+      REPO: ${REPO}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:${POSTGRES_PORT}/${POSTGRES_DB}
+      BATCH_SIZE: ${BATCH_SIZE}
+      UPDATE_TIME: ${UPDATE_TIME}
+    depends_on:
+      db_migration:
+        condition: service_completed_successfully
+
+  pull_llm:
+    build:
+      context: .
+      dockerfile: ./llm_pull/Dockerfile
+    environment:
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL}
+      OLLAMA_PULL_TIMEOUT: ${OLLAMA_PULL_TIMEOUT}
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  server:
+    build:
+      context: .
+      dockerfile: ./server/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:${POSTGRES_PORT}/${POSTGRES_DB}
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL}
+      OLLAMA_TIMEOUT: ${OLLAMA_TIMEOUT}
+      MAX_ISSUES_IN_PROMPT: ${MAX_ISSUES_IN_PROMPT}
+      CORS_ALLOWED_ORIGINS: http://localhost:${FRONTEND_PORT}
+    ports:
+      - "8000:${BACKEND_PORT}"
+    depends_on:
+      pull_llm:
+        condition: service_completed_successfully
+      db_migration:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s 
+
+  frontend:
+    build:
+      context: .
+      dockerfile: ./frontend/Dockerfile
+    environment:
+      API_BASE_URL: http://localhost:${BACKEND_PORT}
+    ports:
+      - "5173:${FRONTEND_PORT}"
+    depends_on:
+      server:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  ollama_data:
