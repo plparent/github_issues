@@ -1,6 +1,6 @@
 import type { IssueEventCount, NarrativeResponse, StaleIssue } from "./types";
 
-const API_BASE = import.meta.env.API_BASE_URL ?? "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 /**
  * The <input type="date"> widgets used in this demo return a plain
